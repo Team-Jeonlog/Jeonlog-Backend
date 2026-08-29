@@ -6,7 +6,7 @@ import org.hibernate.annotations.Formula;
 
 import java.time.LocalDateTime;
 
-@Entity
+@Entity//엔티티
 @Table(
         name = "users",
         uniqueConstraints = {
