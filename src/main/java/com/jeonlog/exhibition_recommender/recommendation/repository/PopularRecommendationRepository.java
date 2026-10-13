@@ -11,24 +11,30 @@ import java.util.List;
 
 public interface PopularRecommendationRepository extends JpaRepository<Exhibition, Long> {
 
+    /**
+     * 인기 전시 id 조회.
+     * 클릭 로그와 북마크를 한 번에 JOIN하면 전시마다 (클릭 수 × 북마크 수)개의 행이 만들어져
+     * COUNT(DISTINCT)로 값은 맞아도 중간 행이 크게 늘어난다.
+     * 그래서 전시별로 클릭 수와 북마크 수를 각각 상관 서브쿼리로 센 뒤 점수를 계산한다.
+     * (exhibition_id, 날짜) 복합 인덱스를 타므로 전시마다 범위 조회 한 번으로 끝난다.
+     */
     @Query("""
-        SELECT e.id
-        FROM Exhibition e
-        LEFT JOIN ExhibitionClickLog ecl
-               ON ecl.exhibition = e
-              AND ecl.clickedDate BETWEEN :fromDate AND :toDate
-        LEFT JOIN Bookmark b
-               ON b.exhibition = e
-              AND b.createdAt BETWEEN :fromDt AND :toDt
-        WHERE e.endDate >= :today
-        GROUP BY e.id
-        ORDER BY (
-            COUNT(DISTINCT ecl.id) * :clickWeight
-          + COUNT(DISTINCT b.id)  * :bookmarkWeight
-        ) DESC,
-        COUNT(DISTINCT b.id) DESC,
-        COUNT(DISTINCT ecl.id) DESC,
-        e.id DESC
+        SELECT t.id
+        FROM (
+            SELECT e.id AS id,
+                   (SELECT COUNT(ecl) FROM ExhibitionClickLog ecl
+                     WHERE ecl.exhibition = e
+                       AND ecl.clickedDate BETWEEN :fromDate AND :toDate) AS clicks,
+                   (SELECT COUNT(b) FROM Bookmark b
+                     WHERE b.exhibition = e
+                       AND b.createdAt BETWEEN :fromDt AND :toDt) AS bookmarks
+            FROM Exhibition e
+            WHERE e.endDate >= :today
+        ) t
+        ORDER BY (t.clicks * :clickWeight + t.bookmarks * :bookmarkWeight) DESC,
+                 t.bookmarks DESC,
+                 t.clicks DESC,
+                 t.id DESC
         """)
     List<Long> findTopPopularExhibitionIds(
             @Param("today") LocalDate today,
