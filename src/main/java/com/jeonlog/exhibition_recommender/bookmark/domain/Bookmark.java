@@ -18,7 +18,8 @@ import java.time.LocalDateTime;
                 columnNames = {"user_id", "exhibition_id"}
         ),
         indexes = {
-                @Index(name = "idx_bookmark_exhibition", columnList = "exhibition_id"),
+                // 전시별 기간 북마크 수 조회용 (exhibition_id 단독 조회도 이 인덱스가 담당)
+                @Index(name = "idx_bookmark_exhibition_created", columnList = "exhibition_id, created_at"),
                 @Index(name = "idx_bookmark_user", columnList = "user_id")
         }
 )
